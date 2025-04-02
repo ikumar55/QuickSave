@@ -1,34 +1,39 @@
-# backend/main.py
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pathlib import Path
 import sqlite3
 import time
-from fastapi.middleware.cors import CORSMiddleware
 
+# Single source‑of‑truth database path
+DB_PATH = Path(__file__).parents[1] / "wishlist.db"
+
+# Utility to get a connection
+def get_conn():
+    return sqlite3.connect(DB_PATH)
 
 app = FastAPI()
-# Enable CORS for all origins (for testing)
+
+# Enable CORS for local/dev testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can later restrict this to your extension's origin
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 1) Let's define a Pydantic model for incoming wishlist items
 class WishlistItem(BaseModel):
     title: str
     url: str
     price: float = 0.0
     image_url: str = ""
 
-# 2) Initialize DB (simple version – we’ll keep it in the same file for now)
+# Create table if it doesn’t exist
 def init_db():
-    conn = sqlite3.connect("wishlist.db")
-    c = conn.cursor()
-    c.execute("""
+    conn = get_conn()
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
@@ -37,46 +42,38 @@ def init_db():
             image_url TEXT,
             created_at REAL
         )
-    """)
+        """
+    )
     conn.commit()
     conn.close()
 
-init_db()  # Ensure the table is created when the app starts
+init_db()
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {"message": "Hello from the Universal Wishlist API!"}
 
 @app.post("/api/wishlist")
-def add_item(item: WishlistItem):
-    """Receive a wishlist item and store it in SQLite."""
-    conn = sqlite3.connect("wishlist.db")
-    c = conn.cursor()
-    c.execute(
+async def add_item(item: WishlistItem):
+    conn = get_conn()
+    conn.execute(
         "INSERT INTO items (title, url, price, image_url, created_at) VALUES (?, ?, ?, ?, ?)",
         (item.title, item.url, item.price, item.image_url, time.time())
     )
     conn.commit()
     conn.close()
-    return {"status": "success", "item_received": item.dict()}
+    return {"status": "success", "item": item.dict()}
 
 @app.get("/api/wishlist")
-def get_items():
-    """Return all wishlist items."""
-    conn = sqlite3.connect("wishlist.db")
-    c = conn.cursor()
-    c.execute("SELECT id, title, url, price, image_url, created_at FROM items")
-    rows = c.fetchall()
+async def get_items():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, title, url, price, image_url, created_at FROM items"
+    ).fetchall()
     conn.close()
 
-    items = []
-    for row in rows:
-        items.append({
-            "id": row[0],
-            "title": row[1],
-            "url": row[2],
-            "price": row[3],
-            "image_url": row[4],
-            "created_at": row[5]
-        })
+    items = [
+        {"id": r[0], "title": r[1], "url": r[2], "price": r[3], "image_url": r[4], "created_at": r[5]}
+        for r in rows
+    ]
     return {"items": items}

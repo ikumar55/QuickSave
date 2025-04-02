@@ -1,11 +1,29 @@
 # QuickSave
-
 source venv/bin/activate
 
 
+✅ Best practice: one service per terminal
+
+1) FastAPI
+source venv/bin/activate
+uvicorn backend.main:app --reload
+
+2) Streamlit (in a second terminal)
+source venv/bin/activate
+streamlit run streamlit_app/app.py
+To stop running to CTRL + C
+
+3) SQLite queries (in a third terminal when needed)
+sqlite3 wishlist.db
+To exit to .exit
 
 
-
+✅ Tip: Always run Streamlit and Uvicorn from inside quicksave/
+cd ~/Desktop/shopping_assistant_project/quicksave
+source venv/bin/activate
+Then do: uvicorn backend.main:app --reload
+And in a different terminal in quicksave though: streamlit run streamlit_app/app.py
+Why? Because tis will prevent the OS from accidentally creating a duplicate wishlist.db in a different folder just because of where you ran a command from.
 
 
 Project Name: Universal Shopping Wishlist App (with Data-Science-Friendly Backend)
