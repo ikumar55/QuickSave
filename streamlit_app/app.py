@@ -8,6 +8,80 @@ import math
 # ---------- CONFIG ----------
 st.set_page_config(page_title="My Shopping Wishlist", layout="wide")
 
+# --- SINGLE-BORDER PRODUCT CARD CSS ---
+st.markdown(
+    """
+    <style>
+    /* Make the overall page background just pure white for clarity */
+    body {
+        background-color: #ffffff !important;
+    }
+
+    /* Card container with a single continuous border, rounded corners */
+    .product-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #fff;
+        margin-bottom: 16px;
+        overflow: hidden;  /* Keeps corners rounded at the image top */
+        transition: box-shadow 0.2s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    .product-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+
+    /* Solid black placeholder for the image area, with a bottom border so that
+       we get a distinct line where the image ends and the content begins */
+    .product-image-placeholder {
+        background-color: #000; 
+        width: 100%;
+        height: 150px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    /* Content area inside the card */
+    .product-content {
+        padding: 12px 16px;
+    }
+    .product-content h4 {
+        margin-top: 0;
+        margin-bottom: 8px;
+    }
+    .product-content p {
+        margin: 4px 0;
+    }
+    .product-content a {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .product-content a:hover {
+        text-decoration: underline;
+    }
+
+    /* Category 'cards' (left panel) remain the same */
+    .category-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        background-color: #f8f8f8;
+        transition: background-color 0.2s ease;
+    }
+    .category-card:hover {
+        background-color: #f0f0f0;
+    }
+    .category-card.active {
+        background-color: #e0e0e0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 DB_PATH = Path(__file__).parents[1] / "wishlist.db"
 
 # ---------- LOAD DATA ----------
@@ -27,18 +101,14 @@ if 'created_at' in df.columns:
 ALL_CATEGORIES = ["Clothing", "Electronics", "Home & Furniture", "Books", "Miscellaneous", "Uncategorized"]
 cat_counts = {cat: 0 for cat in ALL_CATEGORIES}
 
-# Count how many items fall into each category
 for cat in df["category"].fillna("Uncategorized"):
     if cat in cat_counts:
         cat_counts[cat] += 1
     else:
-        # If there are categories in the DB not in ALL_CATEGORIES, add them
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
 
-# Also add an "All" category
 cat_counts["All"] = len(df)
 
-# Keep track of the selected category in session state
 if "selected_category" not in st.session_state:
     st.session_state["selected_category"] = "All"
 
@@ -50,32 +120,9 @@ left_col, right_col = st.columns([2, 5], gap="large")
 
 # ---------- LEFT COLUMN: CATEGORIES ----------
 with left_col:
-    # Title for the categories section
     st.markdown("<h3 style='margin-top: 20px;'>Categories</h3>", unsafe_allow_html=True)
 
-    # Custom CSS to style category cards
-    st.markdown("""
-    <style>
-    .category-card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 12px;
-        cursor: pointer;
-        background-color: #f8f8f8;
-        transition: background-color 0.2s ease;
-    }
-    .category-card:hover {
-        background-color: #f0f0f0;
-    }
-    .category-card.active {
-        background-color: #e0e0e0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     def render_category_card(cat_name, cat_count):
-        """Renders a clickable 'card' for each category."""
         is_active = (cat_name == st.session_state["selected_category"])
         active_class = "active" if is_active else ""
 
@@ -86,11 +133,8 @@ with left_col:
         </div>
         """, unsafe_allow_html=True)
 
-        # Invisible button to handle the click
         if st.button(f"Select {cat_name}", key=f"cat_{cat_name}"):
             st.session_state["selected_category"] = cat_name
-            # If your Streamlit version supports it, refresh automatically:
-            # st.experimental_rerun()
 
     # Render "All" card first
     render_category_card("All", cat_counts["All"])
@@ -101,38 +145,18 @@ with left_col:
 
 # ---------- RIGHT COLUMN: "CONSIDERING PURCHASING" + ITEM CARDS ----------
 with right_col:
-    # Subheader for the items
     st.markdown("<h3 style='margin-top: 20px;'>Considering Purchasing</h3>", unsafe_allow_html=True)
 
-    # Filter the DataFrame based on the selected category
     selected_cat = st.session_state["selected_category"]
     if selected_cat == "All":
         df_filtered = df.copy()
     else:
         df_filtered = df[df["category"].fillna("Uncategorized") == selected_cat]
 
-    # Show the item count
     st.markdown(f"<p style='font-size: 16px; color: #555;'>{len(df_filtered)} items</p>", unsafe_allow_html=True)
 
-    # Custom CSS for the product cards
-    st.markdown("""
-    <style>
-    .product-card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 16px;
-        background-color: #fff;
-        transition: box-shadow 0.2s ease;
-    }
-    .product-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Display products in a grid
-    NUM_COLS = 3
+    # ---------- DISPLAY PRODUCTS IN A GRID (4 items per row) ----------
+    NUM_COLS = 4
     items = df_filtered.reset_index(drop=True)
     num_rows = math.ceil(len(items) / NUM_COLS)
 
@@ -143,37 +167,30 @@ with right_col:
             if item_idx < len(items):
                 row = items.loc[item_idx]
                 with cols[col_idx]:
+                    # Wrap the entire card
                     st.markdown("<div class='product-card'>", unsafe_allow_html=True)
-                    
-                    # Image
-                    if row.get("image_url"):
-                        st.image(row["image_url"], use_column_width=True)
 
-                    # Title
-                    st.markdown(f"<h4 style='margin-top: 10px;'>{row['title']}</h4>", unsafe_allow_html=True)
+                    # Top "image" area (just a black placeholder)
+                    st.markdown("<div class='product-image-placeholder'></div>", unsafe_allow_html=True)
 
-                    # Price
-                    st.markdown(f"<p style='margin:0; font-weight:bold;'>${row['price']}</p>", unsafe_allow_html=True)
+                    # Content
+                    st.markdown("<div class='product-content'>", unsafe_allow_html=True)
 
-                    # Category
+                    st.markdown(f"<h4>{row['title']}</h4>", unsafe_allow_html=True)
+                    st.markdown(f"<p style='font-weight:bold;'>${row['price']}</p>", unsafe_allow_html=True)
+
                     cat_text = row["category"] if row["category"] else "Uncategorized"
-                    st.markdown(f"<p style='margin:0;'>Category: {cat_text}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p>Category: {cat_text}</p>", unsafe_allow_html=True)
 
-                    # Date Added
                     if pd.notnull(row.get("created_at")):
                         created_str = row["created_at"].strftime('%Y-%m-%d')
-                        st.markdown(f"<p style='margin:0;'>Added: {created_str}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p>Added: {created_str}</p>", unsafe_allow_html=True)
 
-                    # Product link
                     if row.get("url"):
-                        st.markdown(f"<a href='{row['url']}' target='_blank'>🔗 View Product</a>", 
-                                    unsafe_allow_html=True)
+                        st.markdown(
+                            f"<a href='{row['url']}' target='_blank'>🔗 View Product</a>", 
+                            unsafe_allow_html=True
+                        )
 
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-    # ---------- OPTIONAL: DETAILED DATA VIEW ----------
-    # Below the card layout, provide an expander to show the table of df_filtered
-    with st.expander("Show Detailed Table"):
-        st.write("Here’s a more detailed view of your filtered items:")
-        st.dataframe(df_filtered)
-
+                    st.markdown("</div>", unsafe_allow_html=True)  # Close product-content
+                    st.markdown("</div>", unsafe_allow_html=True)  # Close product-card
